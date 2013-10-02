@@ -17,7 +17,8 @@ Usage:
 		Stop capturing on your device.
 	$0 clear
 		Wipe files from your $PRODNAME.
-
+	$0 ls
+		Show all images in the $PRODNAME folder.
 	$0 pull outdir
 		Pull files from your $PRODNAME.
 
@@ -52,11 +53,7 @@ case "$1" in
 		clear_mind;
 		;;
 	"pull")
-		if [ -e $2 ]; then
-			read_mind $2
-		else
-			usage
-		fi
+		read_mind $2
 		;;
 	*)
 		usage;
