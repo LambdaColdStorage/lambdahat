@@ -1,0 +1,154 @@
+#!/bin/bash
+
+# LambdaLabsLambdaLabsLamb
+# a                      d
+# m                      a
+# b        \\            L   o                    8           8          o            8
+# d         \\           a   8                    8           8          8            8
+# a          \\          b   8     .oPYo. ooYoYo. 8oPYo. .mEKo8 .oPYo.   8     .oPYo. 8oPYo. .oPYo.
+# L         //\\         s   8     .ooriB 8' 8  8 8    8 8    8 .oooo8   8     .oooo8 8    8 Yb.i
+# a        //  \\        L   8     8    8 8  8  8 8    8 8    8 8    8   8     8    8 8    8   'Yb.
+# b       //    \\       a   8oooo 'Yoozv 8  8  8 'YooP' 'YooP' 'YooP8   8oooo 'YoomB 'YsaB' 'YooP'
+# s                      m
+# L                      b
+# ambdaLabsLambdaLabsLambd
+CD=$PWD/CocoaDialog.app/Contents/MacOS/CocoaDialog
+ADB=$PWD/adb
+MINDREAD=$PWD/mindread.sh
+NAME="Lambda Hat Dashboard"
+LOCATION=/mnt/sdcard/MindCap
+function cdalert {
+	TITLE=$1
+	BODY=$2
+	"$CD" ok-msgbox --no-cancel --title "$1" --text "$1" --informative-text "$2"
+}
+
+function do_backup_in_folder {
+	folder=$1
+	mkdir -p $folder
+	"$MINDREAD" pull $folder
+#	cd $folder
+#	hatfiles=/tmp/hatfiles.$$
+#	"$ADB" shell ls -l $LOCATION > $hatfiles
+#	total_files=$(cat $hatfiles | wc -l)
+#	i=0
+#	echo $total_files
+#	(for f in `cat $hatfiles` 
+#	do
+#		echo `bc -l <<< "100 * ($i / $total_files)"` Backing up $i of $total_files.;
+#		"$ADB" pull `echo $LOCATION/$f | tr -d '\015'` > /dev/null
+#		i=$(($i + 1))
+#	done) > >("$CD" progressbar --float --title "Backup Progress")
+#	cd -
+}
+
+function device_count {
+	echo $(($("$ADB" devices | wc -l) - 2))
+}
+
+function check_device {
+	if [ "$(device_count)" == "0" ]
+	then
+		cdalert "No devices found." "Your Hat isn't plugged in. Please connect the Hat and try again."
+		exit 1;
+	fi
+}
+
+function gen_gif {
+	rv=`"$CD" dropdown --title "Create an animated GIF?" \
+		--no-newline --text "Would you like to create an animated GIF?" \
+		--items "Yes - Medium Quality (320x240)" "Yes - High Quality (640x480)" "No" \
+		--button1 OK --button2 Cancel`;
+	read PRESSED TYPE <<< $rv
+	if [[ "$PRESSED" == "1" ]]; then
+		if [[ "$TYPE" == "0" ]]; then
+			OUT_SZ=320
+		elif [[ "$TYPE" == "1" ]]; then
+			OUT_SZ=640
+		else
+			return;
+		fi
+	else
+		return;
+	fi
+	# if they hit OK
+	echo "Generating an animated gif."
+	IN_DIR=$1
+	OUT_FILE=$2
+	TMPF=tmp
+	RESIZED_DIR=$IN_DIR/$TMPF
+	mkdir -p $RESIZED_DIR
+	PADDING=4
+	# resize
+	ls $IN_DIR | grep .jpg$ | "$PARALLEL" "$CONVERT" -resize $OUT_SZ $IN_DIR/{} $RESIZED_DIR/{}
+	# overlay
+	ls $RESIZED_DIR | grep .jpg$ | "$PARALLEL" "$CONVERT" $RESIZED_DIR/{} logo.png -gravity SouthEast -geometry +$PADDING+$PADDING -composite -format jpg -quality 90 $RESIZED_DIR/{}
+
+	# "$CONVERT" to gif
+	"$CONVERT" -delay 15 $RESIZED_DIR/*.jpg $OUT_FILE
+
+	# open
+	open -a safari $OUT_FILE
+	
+	# clear
+	rm -rf $RESIZED_DIR
+}
+
+function copy_file_menu {
+	CHOSEN_DIR=`"$CD" fileselect --title "Backup directory."\
+	    --text "Choose a directory to copy pictures and video to." \
+	    --with-directory $HOME/Documents/ \
+	    --select-only-directories`
+	if ! [ -n "$CHOSEN_DIR" ]
+	then
+		cdalert "No Directory Chosen" "No backup will occur."
+		exit 1
+	fi
+	BACKUP_FOLDER="$CHOSEN_DIR/hat_backup_$(date +%Y-%m-%d)"
+
+	echo "Backing up your Hat's Photos & Videos to $BACKUP_FOLDER."
+
+	do_backup_in_folder $BACKUP_FOLDER
+	open $BACKUP_FOLDER;
+}
+
+function main_menu {
+	rv=`"$CD" dropdown --title "What would you like to do?" \
+		--no-newline --text "Choose a command then hit OK" \
+		--items "Start MindCap" "Stop MindCap" "Copy Pictures and Video from Lambda Hat" "Delete all Photos and Video on LambdaHat" "Restart Lambda Hat" \
+		--button1 OK --button2 Cancel`;
+	read PRESSED TYPE <<< $rv
+	if [[ "$PRESSED" == "1" ]]
+	then
+		case "$TYPE" in
+			"0")
+				"$MINDREAD" start
+				;;
+			"1")
+				"$MINDREAD" stop
+				;;
+			"2")	
+				copy_file_menu
+				;;
+			"3")
+				"$MINDREAD" clear
+				;;
+			"4")
+				"$ADB" reboot
+				;;
+			*)
+				echo "Unknown command."; exit 1
+				;;
+		esac
+		
+	fi
+}
+
+
+function main {
+	check_device;
+	main_menu;
+	echo "DONE. It's now safe to quit."
+}
+
+main
