@@ -21,6 +21,8 @@ Usage:
 		Show all images in the $PRODNAME folder.
 	$0 pull outdir
 		Pull files from your $PRODNAME.
+	$0 install
+		Install MindCap on your device.
 
 EOF
 }
@@ -39,8 +41,10 @@ read_mind() {
 }
 
 case "$1" in 
-	start|run)
+	install)
 		adb install -r $MINDCAP_BIN
+		;;
+	start|run)
 		adb shell am start -a android.intent.action.MAIN -n $APP_PACKAGE/.MindCap
 		;;
 	stop|kill)
